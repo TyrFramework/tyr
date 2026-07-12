@@ -22,6 +22,6 @@ child.on('exit', (code) => process.exit(code ?? 0));
 child.on('error', (err) => {
     console.error(`Error: Could not start tyr. ${err.message}`);
     console.error(`tsx not found at: ${tsxEntry}`);
-    console.error('Try reinstalling: npm install -g @orxataguy/tyr');
+    console.error('Try reinstalling: npm i -g @tyrframework/cli');
     process.exit(1);
 });

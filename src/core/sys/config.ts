@@ -115,7 +115,7 @@ const PACKAGE_JSON_TEMPLATE = `{
   "private": true,
   "description": "Custom Tyr commands (~/.tyr/)",
   "dependencies": {
-    "@orxataguy/tyr": "latest"
+    "@tyrframework/cli": "latest"
   }
 }
 `;

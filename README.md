@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@orxataguy/tyr"><img src="https://img.shields.io/npm/v/@orxataguy/tyr.svg" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@tyrframework/cli"><img src="https://img.shields.io/npm/v/@tyrframework/cli.svg" alt="npm version" /></a>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node 18+" />
   <img src="https://img.shields.io/badge/TypeScript-5.x-blue" alt="TypeScript" />
@@ -28,19 +28,19 @@ You write a function. Tyr takes care of everything else — argument routing, de
 ## Installation
 
 ```bash
-npm install -g @orxataguy/tyr
+npm i -g @tyrframework/cli
 ```
 
 Or as a project dependency:
 
 ```bash
-npm install @orxataguy/tyr
+npm i @tyrframework/cli
 ```
 
 After installing, run the setup command to initialize Tyr in your project:
 
 ```bash
-tyr install
+tyr --config
 ```
 
 This creates the expected folder structure and registers the `tyr` alias in your shell config.
@@ -60,7 +60,7 @@ This generates `src/commands/greet.tyr.ts` and registers it in `config/map.yml`.
 ### 2. Edit the command
 
 ```typescript
-import { TyrContext } from '../core/Kernel';
+import { TyrContext } from '@tyrframework/cli';
 
 export default ({ task, fail, logger }: TyrContext) => {
     return async (args: string[]) => {
@@ -427,7 +427,7 @@ test('my command runs', async () => {
 
 ## NPM & Community
 
-Tyr is published on npm as [`@orxataguy/tyr`](https://www.npmjs.com/package/@orxataguy/tyr).
+Tyr is published on npm as [`@tyrframework/cli`](https://www.npmjs.com/package/@tyrframework/cli).
 
 The project follows a hybrid open community model — the main repository is open, and contributors are encouraged to publish their own forks under their own npm scope. You do not need permission from the maintainer to fork, improve, or publish your own version.
 

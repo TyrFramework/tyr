@@ -231,12 +231,12 @@ export const AGENT_TOOLS: AITool[] = [
         name: 'read_dependency_manifest',
         description:
             'Locates an installed dependency in node_modules (by its exact package name, e.g. ' +
-            '"@orxataguy/tyr" or "react") and summarises its own package.json: version, description ' +
+            '"@tyrframework/cli" or "react") and summarises its own package.json: version, description ' +
             'and entry points (main, module, types, exports, bin). The recommended first step before ' +
             'exploring a dependency\'s code.',
         input_schema: {
             type: 'object',
-            properties: { packageName: { type: 'string', description: 'Exact package name, with scope if any (e.g. "@orxataguy/tyr").' } },
+            properties: { packageName: { type: 'string', description: 'Exact package name, with scope if any (e.g. "@tyrframework/cli").' } },
             required: ['packageName'],
         },
     },

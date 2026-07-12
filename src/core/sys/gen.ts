@@ -24,11 +24,11 @@ interface TyrConfig {
 }
 
 // The boilerplate written into every new command file. Note it imports `TyrContext` from
-// '@orxataguy/tyr' (the published package), NOT a relative path — this file is generated INTO the
+// '@tyrframework/cli' (the published package), NOT a relative path — this file is generated INTO the
 // user's own `~/.tyr/commands/` directory, outside this repository, so it must resolve the type
 // through the npm package's public export (see src/index.ts) rather than a path that only makes
 // sense inside this repo.
-const template = `import type { TyrContext } from '@orxataguy/tyr';
+const template = `import type { TyrContext } from '@tyrframework/cli';
 
 export default ({ run, task, fail, logger, shell, fs }: TyrContext) => {
     return async (args: string[]) => {

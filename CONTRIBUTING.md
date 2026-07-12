@@ -13,8 +13,8 @@ codebase is built around.
 Requirements: Node 18+ and npm.
 
 ```bash
-git clone https://github.com/orxataguy/TyrFramework.git
-cd TyrFramework
+git clone https://github.com/TyrFramework/tyr.git
+cd tyr
 npm install
 ```
 
@@ -91,7 +91,7 @@ convention. Match what's already there:
 
 ## Finding something to work on
 
-Issues labeled [`good first issue`](https://github.com/orxataguy/TyrFramework/labels/good%20first%20issue)
+Issues labeled [`good first issue`](https://github.com/TyrFramework/tyr/labels/good%20first%20issue)
 on GitHub are scoped for newcomers to the codebase. If nothing's labeled yet, `src/core/sys/` (the
 built-in commands) and `src/lib/` (the Managers) are the most approachable starting points — each
 file is self-contained and documented. If you want to add support for a new external tool or
