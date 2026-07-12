@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "🔍 Running unit tests before commit..."
+npm test

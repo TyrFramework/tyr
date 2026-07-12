@@ -1,0 +1,70 @@
+# Fork Release Workflow
+#
+# This workflow is designed for community forks of Tyr.
+# If you have forked this repository and want to publish your own version to npm,
+# follow these steps before tagging a release:
+#
+#   1. Update the "name" field in package.json to your own npm scope:
+#        "name": "@yourname/tyr"
+#
+#   2. Go to your forked repo on GitHub:
+#        Settings → Secrets and variables → Actions → New repository secret
+#      Add a secret named NPM_TOKEN with a valid npm access token.
+#      (Create one at npmjs.com → Avatar → Access Tokens → Generate New Token)
+#
+#   3. Push a version tag to trigger this workflow:
+#        git tag v1.0.0
+#        git push origin v1.0.0
+#
+# The workflow will install dependencies, run tests, publish to npm under
+# the scope defined in your package.json, and create a GitHub Release.
+
+name: Fork Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match package.json)'
+        required: false
+
+jobs:
+  release:
+    name: Publish fork to npm & create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify npm token
+        run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

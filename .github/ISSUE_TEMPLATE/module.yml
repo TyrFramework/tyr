@@ -1,0 +1,70 @@
+name: 🧩 Submit a module
+description: Request your module manifest to be listed in COMMUNITY.md
+title: "[Module] "
+labels: ["module", "community-listing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Modules are collections of commands installable with
+        `tyr --add <manifest-url>`. Fill this in and we'll review it for
+        the community directory.
+
+        Before submitting, make sure:
+        - Your `manifest.json` is reachable at a `raw.githubusercontent.com`
+          URL and validates against the format in the README.
+        - `tyr --add <your-manifest-url>` actually works end to end.
+        - Command names are namespaced or distinctive enough to avoid
+          obvious collisions with built-ins or popular modules.
+
+  - type: input
+    id: manifest-url
+    attributes:
+      label: Manifest URL
+      placeholder: "https://raw.githubusercontent.com/yourname/tyr-modules/main/manifest.json"
+    validations:
+      required: true
+
+  - type: input
+    id: repo-url
+    attributes:
+      label: Source repository URL
+      placeholder: "https://github.com/yourname/tyr-modules"
+    validations:
+      required: true
+
+  - type: input
+    id: maintainer
+    attributes:
+      label: Maintainer name / handle
+      placeholder: "Jane Smith (@janesmith)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: What commands does this add?
+      description: List the command names and a one-line description of each.
+      placeholder: |
+        - deploy: Deploys the current branch to staging via Docker
+        - rollback: Rolls back the last deploy
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Required environment variables (if any)
+      description: If your manifest includes an `$env` template, summarize
+        what it expects. Leave blank if none.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I've tested `tyr --add <manifest-url>` and it installs cleanly
+          required: true
+        - label: This module doesn't collide with existing built-in command names
+          required: true

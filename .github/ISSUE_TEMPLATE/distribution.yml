@@ -1,0 +1,63 @@
+name: 📦 Submit a distribution
+description: Request your fork/distribution to be listed in COMMUNITY.md
+title: "[Distribution] "
+labels: ["distribution", "community-listing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for publishing your own distribution of Tyr! Fill this in
+        and we'll review it for the community directory.
+
+        Before submitting, make sure:
+        - Your fork's `package.json` `name` field uses your own npm scope
+          (e.g. `@yourname/tyr`), not `@tyrframework/*`.
+        - The package is actually published and installable.
+        - Your repo has at least a minimal README explaining what's
+          different from upstream (if anything).
+
+  - type: input
+    id: npm-package
+    attributes:
+      label: npm package name
+      description: The exact installable name, e.g. `@johndoe/tyr`
+      placeholder: "@yourname/tyr"
+    validations:
+      required: true
+
+  - type: input
+    id: repo-url
+    attributes:
+      label: Repository URL
+      placeholder: "https://github.com/yourname/TyrFramework"
+    validations:
+      required: true
+
+  - type: input
+    id: maintainer
+    attributes:
+      label: Maintainer name / handle
+      placeholder: "John Doe (@johndoe)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What's different about this distribution?
+      description: One or two sentences. Extra built-in commands, a
+        different set of Managers, an internal-tooling focus, etc. If it's
+        a plain fork with no changes yet, say so.
+      placeholder: "Adds a KubernetesManager and a set of internal deploy commands for our team's stack."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: The package is published on npm and installable right now
+          required: true
+        - label: I understand this distribution is community-maintained and not officially supported by the Tyr core team
+          required: true
