@@ -8,7 +8,7 @@
  * here).
  */
 import fs from 'fs/promises';
-import { existsSync, Dirent } from 'fs';
+import { existsSync, Dirent, Stats, statSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
 
@@ -65,6 +65,27 @@ export class FileSystemManager {
     public exists(filePath: string): boolean {
         const resolvedPath = this.resolvePath(filePath);
         return existsSync(resolvedPath);
+    }
+
+    /**
+     * @method stat
+     * @description Synchronously retrieves filesystem stats (size, timestamps, type, etc.) for the given path. Returns null if the path does not exist.
+     * @param {string} filePath - Relative or absolute path to inspect.
+     * @returns {Stats|null} The stats object, or null if the path does not exist.
+     * @example
+     * const stats = fs.stat('./config.json');
+     * if (stats?.isFile()) {
+     *   logger.info(`Size: ${stats.size} bytes`);
+     * }
+     */
+    public stat(filePath: string): Stats | null {
+        const resolvedPath = this.resolvePath(filePath);
+        try {
+            return statSync(resolvedPath);
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+            throw new TyrError(`Could not get stats for file: ${filePath}`, e, 'Check that the file exists and has read permissions.');
+        }
     }
 
     /**
