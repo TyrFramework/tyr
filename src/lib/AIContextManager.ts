@@ -1063,7 +1063,7 @@ export class AIContextManager {
         tokens: TokenManager,
         options: AgentRunOptions = {}
     ): Promise<AgentRunResult> {
-        const priority = options.priority ?? 'media-prioridad';
+        const priority = options.priority ?? 'mid';
         const maxIterations = options.maxIterations ?? DEFAULT_MAX_AGENT_ITERATIONS;
         const completeOptions = { tools: AGENT_TOOLS, ...(options.maxTokens ? { maxTokens: options.maxTokens } : {}) };
 
@@ -1329,11 +1329,11 @@ export class AIContextManager {
      * @param {string} targetDir - Directory the agent is allowed to write to.
      * @param {AIMessage[]} messages - Seed conversation (system + user), mutated in place.
      * @param {TokenManager} tokens - Injected by the caller so usage is tracked centrally.
-     * @param {AgentRunOptions} options - priority (default 'media-prioridad'), maxIterations, maxTokens.
+     * @param {AgentRunOptions} options - priority (default 'mid'), maxIterations, maxTokens.
      * @returns {Promise<CodeAgentResult>}
      * @example
      * const messages = await prompts.build('ai-code', { task: prompt, tree }, targetDir);
-     * const result = await aiContext.runCodeAgent(targetDir, messages, tokens, { priority: 'media-prioridad' });
+     * const result = await aiContext.runCodeAgent(targetDir, messages, tokens, { priority: 'mid' });
      */
     public async runCodeAgent(
         targetDir: string,
@@ -1341,7 +1341,7 @@ export class AIContextManager {
         tokens: TokenManager,
         options: AgentRunOptions = {}
     ): Promise<CodeAgentResult> {
-        let priority = options.priority ?? 'media-prioridad';
+        let priority = options.priority ?? 'mid';
         const explorationRoot = this.computeExplorationRoot(targetDir);
         const ctx: AgentToolContext = { projectDir: targetDir, explorationRoot, ignoredDirs: DEFAULT_IGNORED_DIRS, seenFiles: new Set<string>() };
 
@@ -1421,7 +1421,7 @@ export class AIContextManager {
      * @param {string} dir - Directory the agent is allowed to explore (read-only).
      * @param {AIMessage[]} messages - Seed conversation (system + user).
      * @param {TokenManager} tokens - Injected by the caller so usage is tracked centrally.
-     * @param {AgentRunOptions} options - priority (default 'baja-media-prioridad'), maxIterations, maxTokens.
+     * @param {AgentRunOptions} options - priority (default 'mid-low'), maxIterations, maxTokens.
      * @returns {Promise<AgentRunResult>}
      * @example
      * const messages = await prompts.build('ai-describe-project', { tree, readme }, projectDir);
@@ -1436,7 +1436,7 @@ export class AIContextManager {
     ): Promise<AgentRunResult> {
         const explorationRoot = this.computeExplorationRoot(dir);
         const ctx: AgentToolContext = { projectDir: dir, explorationRoot, ignoredDirs: DEFAULT_IGNORED_DIRS, seenFiles: new Set<string>() };
-        return this.runAgentLoop(messages, ctx, tokens, { ...options, priority: options.priority ?? 'baja-media-prioridad' });
+        return this.runAgentLoop(messages, ctx, tokens, { ...options, priority: options.priority ?? 'mid-low' });
     }
 }
 

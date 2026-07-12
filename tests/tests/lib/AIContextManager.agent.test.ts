@@ -154,7 +154,7 @@ describe('AIContextManager — Loop Detector', () => {
         const messages = [{ role: 'system', content: 'test' }, { role: 'user', content: 'go' }];
         const toolCtx = { projectDir: '/tmp', explorationRoot: '/tmp', ignoredDirs: new Set<string>(), seenFiles: new Set<string>() };
 
-        const result = await ctx.runAgentLoop(messages, toolCtx, fakeTokens, { priority: 'media-prioridad', maxIterations: 10 });
+        const result = await ctx.runAgentLoop(messages, toolCtx, fakeTokens, { priority: 'mid', maxIterations: 10 });
 
         expect(result.content).toMatch(/loop detector/i);
         // 3 calls made before the detector trips on the 3rd identical one; no 4th call needed.
@@ -185,12 +185,12 @@ describe('AIContextManager — runCodeAgent diffs and sandbox verification', () 
     it('returns a valid unified diff for each file changed', async () => {
         const ctx = buildManager();
         ctx.runAgentLoop = vi.fn().mockResolvedValue({
-            content: patchText, promptTokens: 1, completionTokens: 1, toolCallsUsed: 0, priorityUsed: 'media-prioridad',
+            content: patchText, promptTokens: 1, completionTokens: 1, toolCallsUsed: 0, priorityUsed: 'mid',
         });
         ctx.runValidation = vi.fn().mockResolvedValue({ ran: false, ok: true });
         ctx.sandbox.verify = vi.fn().mockResolvedValue({ ran: false, ok: true });
 
-        const result = await ctx.runCodeAgent(projectDir, [{ role: 'user', content: 'add math.js' }], fakeTokens, { priority: 'media-prioridad' });
+        const result = await ctx.runCodeAgent(projectDir, [{ role: 'user', content: 'add math.js' }], fakeTokens, { priority: 'mid' });
 
         expect(result.filesChanged).toEqual(['math.js']);
         expect(result.fileDiffs).toHaveLength(1);
@@ -203,7 +203,7 @@ describe('AIContextManager — runCodeAgent diffs and sandbox verification', () 
     it('drives the same self-heal retry/priority-bump cycle as a validation failure when the sandbox check fails', async () => {
         const ctx = buildManager();
         ctx.runAgentLoop = vi.fn().mockResolvedValue({
-            content: patchText, promptTokens: 1, completionTokens: 1, toolCallsUsed: 0, priorityUsed: 'media-prioridad',
+            content: patchText, promptTokens: 1, completionTokens: 1, toolCallsUsed: 0, priorityUsed: 'mid',
         });
         ctx.runValidation = vi.fn().mockResolvedValue({ ran: false, ok: true });
 
@@ -215,12 +215,12 @@ describe('AIContextManager — runCodeAgent diffs and sandbox verification', () 
 
         const bumpPriority = vi.spyOn(ctx.ai, 'bumpPriority');
 
-        const result = await ctx.runCodeAgent(projectDir, [{ role: 'user', content: 'add math.js' }], fakeTokens, { priority: 'media-prioridad' });
+        const result = await ctx.runCodeAgent(projectDir, [{ role: 'user', content: 'add math.js' }], fakeTokens, { priority: 'mid' });
 
         expect(verify).toHaveBeenCalledTimes(2);
         expect(bumpPriority).toHaveBeenCalledTimes(1);
         expect(result.sandbox.ok).toBe(true);
-        expect(result.priorityUsed).not.toBe('media-prioridad');
+        expect(result.priorityUsed).not.toBe('mid');
     });
 });
 

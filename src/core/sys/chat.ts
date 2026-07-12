@@ -44,10 +44,10 @@ export default function chat({ logger, chat: chatManager, aiVendor, fail }: TyrC
         const splitRatio = splitArg ? parseFloat(splitArg) : undefined;
 
         // Which routing priority (model tier + thinking effort) answers a chat message with —
-        // see AIVendorManager.TaskPriority. Chat defaults to 'media-prioridad' (the same default
+        // see AIVendorManager.TaskPriority. Chat defaults to 'mid' (the same default
         // ai:code uses) rather than something cheaper, since a wrong answer in an interactive
         // back-and-forth is more disruptive than in a one-shot batch command.
-        const priority = (parseFlag(args, '--priority') as TaskPriority | undefined) ?? 'media-prioridad';
+        const priority = (parseFlag(args, '--priority') as TaskPriority | undefined) ?? 'mid';
 
         // Complexity/cost ceiling ("techo de complejidad"): no resolved priority may ever exceed
         // this, no matter what --priority above (or a future per-message override) asks for. Falls

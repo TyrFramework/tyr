@@ -66,12 +66,12 @@ export type ThinkingEffort = 'none' | 'low' | 'medium' | 'high' | 'max';
 /** Prioridad de una tarea, usada por resolvePriority()/completeWithPriority() para elegir modelo
  *  y esfuerzo de razonamiento sin que el llamador tenga que conocer nombres de modelo concretos. */
 export type TaskPriority =
-    | 'baja-prioridad'
-    | 'baja-media-prioridad'
-    | 'media-prioridad'
-    | 'media-alta-prioridad'
-    | 'alta-prioridad'
-    | 'muy-alta-prioridad';
+    | 'low'
+    | 'mid-low'
+    | 'mid'
+    | 'mid-high'
+    | 'high'
+    | 'very-high';
 
 export interface AICompletionOptions {
     vendor?: AIVendor;
@@ -238,21 +238,21 @@ function resolveOpenAIReasoningEffort(effort: ThinkingEffort): string | undefine
  * used when the corresponding env var is unset or holds an invalid tier/thinking value.
  */
 const PRIORITY_ROUTING: Record<TaskPriority, { tier: ModelTier; thinking: ThinkingEffort }> = {
-    'baja-prioridad': { tier: 'cheap', thinking: 'none' },
-    'baja-media-prioridad': { tier: 'cheap', thinking: 'high' },
-    'media-prioridad': { tier: 'balanced', thinking: 'none' },
-    'media-alta-prioridad': { tier: 'balanced', thinking: 'high' },
-    'alta-prioridad': { tier: 'balanced', thinking: 'max' },
-    'muy-alta-prioridad': { tier: 'flagship', thinking: 'max' },
+    'low': { tier: 'cheap', thinking: 'none' },
+    'mid-low': { tier: 'cheap', thinking: 'high' },
+    'mid': { tier: 'balanced', thinking: 'none' },
+    'mid-high': { tier: 'balanced', thinking: 'high' },
+    'high': { tier: 'balanced', thinking: 'max' },
+    'very-high': { tier: 'flagship', thinking: 'max' },
 };
 
 const PRIORITY_ROUTING_ENV: Record<TaskPriority, { tier: string; thinking: string }> = {
-    'baja-prioridad': { tier: 'AI_PRIORITY_BAJA_TIER', thinking: 'AI_PRIORITY_BAJA_THINKING' },
-    'baja-media-prioridad': { tier: 'AI_PRIORITY_BAJA_MEDIA_TIER', thinking: 'AI_PRIORITY_BAJA_MEDIA_THINKING' },
-    'media-prioridad': { tier: 'AI_PRIORITY_MEDIA_TIER', thinking: 'AI_PRIORITY_MEDIA_THINKING' },
-    'media-alta-prioridad': { tier: 'AI_PRIORITY_MEDIA_ALTA_TIER', thinking: 'AI_PRIORITY_MEDIA_ALTA_THINKING' },
-    'alta-prioridad': { tier: 'AI_PRIORITY_ALTA_TIER', thinking: 'AI_PRIORITY_ALTA_THINKING' },
-    'muy-alta-prioridad': { tier: 'AI_PRIORITY_MUY_ALTA_TIER', thinking: 'AI_PRIORITY_MUY_ALTA_THINKING' },
+    'low': { tier: 'AI_PRIORITY_LOW_TIER', thinking: 'AI_PRIORITY_LOW_THINKING' },
+    'mid-low': { tier: 'AI_PRIORITY_MID_LOW_TIER', thinking: 'AI_PRIORITY_MID_LOW_THINKING' },
+    'mid': { tier: 'AI_PRIORITY_MID_TIER', thinking: 'AI_PRIORITY_MID_THINKING' },
+    'mid-high': { tier: 'AI_PRIORITY_MID_HIGH_TIER', thinking: 'AI_PRIORITY_MID_HIGH_THINKING' },
+    'high': { tier: 'AI_PRIORITY_HIGH_TIER', thinking: 'AI_PRIORITY_HIGH_THINKING' },
+    'very-high': { tier: 'AI_PRIORITY_VERY_HIGH_TIER', thinking: 'AI_PRIORITY_VERY_HIGH_THINKING' },
 };
 
 const VALID_MODEL_TIERS: ModelTier[] = ['cheap', 'balanced', 'flagship'];
@@ -278,12 +278,12 @@ function resolvePriorityRoute(priority: TaskPriority): { tier: ModelTier; thinki
  *  clampPriority() to enforce an optional ceiling. Exported so callers (e.g. a chat UI's effort
  *  selector) can list the valid levels without hardcoding them. */
 export const TASK_PRIORITIES: TaskPriority[] = [
-    'baja-prioridad',
-    'baja-media-prioridad',
-    'media-prioridad',
-    'media-alta-prioridad',
-    'alta-prioridad',
-    'muy-alta-prioridad',
+    'low',
+    'mid-low',
+    'mid',
+    'mid-high',
+    'high',
+    'very-high',
 ];
 
 /**
@@ -367,7 +367,7 @@ export class AIVendorManager {
      * @param {AICompletionOptions} overrides - Optional overrides merged on top (e.g. tools, maxTokens).
      * @returns {AICompletionOptions} Options ready to pass to complete()/stream().
      * @example
-     * const options = aiVendor.resolvePriority('media-alta-prioridad', { tools: AGENT_TOOLS });
+     * const options = aiVendor.resolvePriority('mid-high', { tools: AGENT_TOOLS });
      * const result = await aiVendor.complete(messages, options);
      */
     public resolvePriority(priority: TaskPriority, overrides: AICompletionOptions = {}): AICompletionOptions {
@@ -392,8 +392,8 @@ export class AIVendorManager {
 
     /**
      * @method bumpPriority
-     * @description Escalates a priority one level up the ladder (baja-prioridad → ... →
-     * muy-alta-prioridad), capping at the top. Used for self-healing retries: each consecutive
+     * @description Escalates a priority one level up the ladder (low → ... →
+     * very-high), capping at the top. Used for self-healing retries: each consecutive
      * failure (e.g. a broken compile after an applied patch) buys the model more capability.
      * @param {TaskPriority} priority - The current priority.
      * @returns {TaskPriority} The next priority level, or the same value if already at the top.
@@ -416,7 +416,7 @@ export class AIVendorManager {
      * AI_MAX_PRIORITY env var (see getPriorityCeiling()).
      * @param {TaskPriority | null} priority - The highest allowed priority, or null to remove the cap.
      * @example
-     * aiVendor.setPriorityCeiling('media-prioridad'); // never route to alta/muy-alta, even on retry
+     * aiVendor.setPriorityCeiling('mid'); // never route to high/very-high, even on retry
      */
     public setPriorityCeiling(priority: TaskPriority | null): void {
         this.priorityCeilingOverride = priority;
@@ -450,7 +450,7 @@ export class AIVendorManager {
      * @param {AICompletionOptions} options - Optional overrides merged on top of the routed defaults.
      * @returns {Promise<AICompletionResult>}
      * @example
-     * const result = await aiVendor.completeWithPriority(messages, 'alta-prioridad', { tools });
+     * const result = await aiVendor.completeWithPriority(messages, 'high', { tools });
      */
     public async completeWithPriority(
         messages: AIMessage[],

@@ -220,7 +220,7 @@ describe('ChatManager — priority ceiling', () => {
         chat = new ChatManager(new FileSystemManager(mockLogger), mockLogger);
         session = await chat.open(workDir, {
             port: 0,
-            priorityCeiling: { levels: ['baja-prioridad', 'media-prioridad', 'alta-prioridad'], initial: 'media-prioridad' },
+            priorityCeiling: { levels: ['low', 'mid', 'high'], initial: 'mid' },
         });
     });
 
@@ -231,22 +231,22 @@ describe('ChatManager — priority ceiling', () => {
 
     it('renders the levels and current value in the served page bootstrap', async () => {
         const res = await api.get(session.url);
-        expect(res.data).toContain('"priorityCeiling":{"levels":["baja-prioridad","media-prioridad","alta-prioridad"],"current":"media-prioridad"}');
+        expect(res.data).toContain('"priorityCeiling":{"levels":["low","mid","high"],"current":"mid"}');
     });
 
     it('updates the ceiling and fires priority:change on a valid value', async () => {
         let captured: any = null;
         chat.on('priority:change', (payload: any) => { captured = payload; });
 
-        const res = await api.post(`${session.url}/api/priority-ceiling`, { value: 'alta-prioridad' });
+        const res = await api.post(`${session.url}/api/priority-ceiling`, { value: 'high' });
 
         expect(res.status).toBe(200);
-        expect(res.data).toEqual({ ok: true, value: 'alta-prioridad' });
-        expect(captured).toEqual({ sessionId: session.id, dir: workDir, value: 'alta-prioridad' });
+        expect(res.data).toEqual({ ok: true, value: 'high' });
+        expect(captured).toEqual({ sessionId: session.id, dir: workDir, value: 'high' });
     });
 
     it('rejects a value outside the configured levels', async () => {
-        const res = await api.post(`${session.url}/api/priority-ceiling`, { value: 'muy-alta-prioridad' });
+        const res = await api.post(`${session.url}/api/priority-ceiling`, { value: 'very-high' });
         expect(res.status).toBe(400);
         expect(res.data.error).toMatch(/invalid/i);
     });
