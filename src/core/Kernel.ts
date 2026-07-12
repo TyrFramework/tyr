@@ -220,8 +220,18 @@ export class Kernel {
             const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
             const shell = this.container.get().shell;
             console.log(`Updating ${pkg.name}...`);
-            await shell.exec(`npm update -g ${pkg.name}`);
-            console.log(`Current version:`, `tyr v${pkg.version}`)
+            // Deliberately `install -g <name>@latest`, NOT `npm update -g <name>`: `update` builds
+            // an "ideal tree" from the registry manifest and diffs it against what's on disk,
+            // removing whatever it can't reconcile — for a global CLI install that can degrade
+            // into "removed N packages, added 0", leaving `tyr` present but non-functional with an
+            // empty dependency tree. `install -g <name>@latest` always does a full, self-contained
+            // reinstall instead, so it can't strand the install in that half-updated state.
+            await shell.exec(`npm install -g ${pkg.name}@latest`);
+            // Re-read package.json: the in-memory `pkg` above is what was on disk BEFORE the
+            // upgrade, so `pkg.version` would still report the old version even after a
+            // successful upgrade.
+            const updatedPkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+            console.log(`Current version:`, `tyr v${updatedPkg.version}`)
             return;
         }
 
