@@ -6,6 +6,14 @@
  * generator, and it only ever reads from `frameworkRoot`, so it always reflects whatever Managers
  * are actually installed in this copy of Tyr.
  *
+ * The page also has a second, independent "User Commands" section listing every command in
+ * `~/.tyr/commands/*.tyr.ts`. As of this file's `@description`/`@example` support, commands are
+ * documented with the exact same JSDoc tags as Managers — see `parseCommandJSDoc()` (imported from
+ * `sys/help.ts`, which parses the same comment for `tyr --help`) — including multiple `@example`
+ * blocks per command, rendered here just like a Manager method's example. This is still
+ * user-authored content though, unrelated to the framework's own reference above it: an
+ * undocumented command shows up with "No description." instead of being skipped.
+ *
  * Also demonstrates a command that starts a long-running local HTTP server rather than doing one
  * thing and exiting (compare with the request/response cycle in `sys/chat.ts`).
  */
@@ -13,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import { TyrContext } from '../Kernel';
+import { parseCommandJSDoc } from './help';
 
 interface DocMethod {
     name: string;
@@ -26,21 +35,32 @@ interface DocStructure {
     methods: DocMethod[];
 }
 
+/** A user command's doc entry for the "User Commands" section — `parseCommandJSDoc()` returns the
+ *  description/examples, this just pairs them with the command's file-derived name. */
+interface CommandEntry {
+    name: string;
+    description: string;
+    examples: string[];
+}
+
 /**
  * @method doc (default export)
  * @description Starts a local HTTP server (default port 3000) serving a single-page HTML
  * reference built by scanning every `.ts` file in `src/lib/` for JSDoc comments, plus a hardcoded
- * "TyrContext (Kernel)" section documenting `run`/`task`/`fail`/`logger`. The page also exposes a
- * `POST /generate` endpoint that shells out to the `ai` command (via `run('ai', [name, prompt])`)
- * so a command can be scaffolded from natural language directly from the docs UI.
- * @param {TyrContext} context - Only `logger`, `frameworkRoot` and `run` are needed here.
+ * "TyrContext (Kernel)" section documenting `run`/`task`/`fail`/`logger`, and a "User Commands"
+ * section listing every command found in `~/.tyr/commands/*.tyr.ts`, documented with the same
+ * `@description`/`@example` tags as a Manager (multiple `@example` blocks are supported and each
+ * rendered on its own). The page also exposes a `POST /generate` endpoint that shells out to the
+ * `ai` command (via `run('ai', [name, prompt])`) so a command can be scaffolded from natural
+ * language directly from the docs UI.
+ * @param {TyrContext} context - Only `logger`, `frameworkRoot`, `userRoot` and `run` are needed here.
  * @returns {(args: string[]) => Promise<void>} Handler (ignores `args`); keeps the process alive
  *   until interrupted (Ctrl+C) since `server.listen()` never resolves on its own.
  * @example
  * // tyr doc
  * // -> TS documentation ready at: http://localhost:3000
  */
-export default function doc({ logger, frameworkRoot, run }: TyrContext) {
+export default function doc({ logger, frameworkRoot, userRoot, run }: TyrContext) {
     return async (args: string[]) => {
         logger.info("📚 Generating system documentation (TS Mode)...");
 
@@ -58,14 +78,22 @@ export default function doc({ logger, frameworkRoot, run }: TyrContext) {
                 methods: []
             };
 
+            // Strips the leading `*` (and its indentation) from every line, but — unlike an
+            // earlier version of this function — keeps blank lines that fall INSIDE the comment
+            // rather than dropping every empty line indiscriminately. Those blank lines are how a
+            // JSDoc block marks a paragraph break (e.g. between a class's opening summary and a
+            // second paragraph of detail); losing them collapsed every description into a single
+            // run-on wall of text once rendered as HTML. Only the comment's own leading/trailing
+            // blank lines (the ones right after `/**` and right before `*/`) are trimmed away.
             const cleanJSDoc = (raw: string) => {
-                return raw
+                const lines = raw
                     .split('\n')
-                    .map(line => {
-                        return line.trim().replace(/^\*+\s?/, '');
-                    })
-                    .filter(line => line !== '')
-                    .join('\n');
+                    .map(line => line.trim().replace(/^\*+\s?/, ''));
+
+                while (lines.length && lines[0] === '') lines.shift();
+                while (lines.length && lines[lines.length - 1] === '') lines.pop();
+
+                return lines.join('\n');
             };
 
             // Walk every /** ... */ block in the file in source order, and for each one peek at
@@ -123,7 +151,12 @@ export default function doc({ logger, frameworkRoot, run }: TyrContext) {
                     if (descMatch) {
                         description = descMatch[1].trim();
                     } else {
-                        const textLines = cleanComment.split('\n').filter(l => !l.startsWith('@'));
+                        // No explicit @description tag — fall back to whatever plain text is in
+                        // the comment. Blank lines are dropped here (unlike the @description path
+                        // above): with no tag to delimit where the description ends, a stray blank
+                        // line is more likely incidental spacing before another tag than a real
+                        // paragraph break.
+                        const textLines = cleanComment.split('\n').filter(l => l !== '' && !l.startsWith('@'));
                         description = textLines.join(' ').trim() || "No description";
                     }
 
@@ -146,6 +179,35 @@ export default function doc({ logger, frameworkRoot, run }: TyrContext) {
             return fileDoc;
         };
 
+        // Every description/example/usage string below is interpolated straight into the HTML
+        // template further down — none of it is escaped at the source. CLI docs are full of
+        // "<...>" placeholder syntax (`<name>`, `<directory>`, `[--port <n>]`) and generic types
+        // (`Promise<T>`, `Record<string, any>`); left unescaped, a browser silently swallows those
+        // as unknown HTML tags, so the parameter placeholder just vanishes from the rendered page.
+        // Every dynamic value gets run through this before being placed inside the HTML below.
+        const escapeHtml = (text: string): string =>
+            String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+        // Manager and command descriptions are written in the same JSDoc dialect used throughout
+        // this codebase, which includes TypeDoc-style `{@link Something}` cross-references (see
+        // e.g. AIContextManager.ts's file header). This hand-rolled parser doesn't resolve those —
+        // left alone, `escapeHtml()` passes them through untouched and the page shows the literal
+        // "{@link Container}" text. Run AFTER escapeHtml() (curly braces survive escaping, so the
+        // pattern still matches) and turns each one into a small inline cross-reference link: if
+        // the target happens to be another card's id (a Manager's class name), clicking it jumps
+        // there; if not (e.g. `{@link AGENT_TOOLS}`, a constant with no card of its own), the link
+        // just does nothing when clicked — cheaper than trying to resolve every possible target.
+        const linkifyJSDoc = (escaped: string): string =>
+            escaped.replace(/\{@link\s+([^\s}|]+)(?:[|\s][^}]*)?\}/g, '<a href="#$1" class="xref">$1</a>');
+
+        // The one path used for prose (descriptions) that may legitimately contain `{@link ...}`
+        // tags. Code examples go through escapeHtml() alone — a code block isn't prose and
+        // shouldn't have parts of it silently turned into links.
+        const renderText = (text: string): string => linkifyJSDoc(escapeHtml(text));
+
         if (!fs.existsSync(libPath)) {
             logger.error(`Library folder not found: ${libPath}`);
             return;
@@ -160,6 +222,23 @@ export default function doc({ logger, frameworkRoot, run }: TyrContext) {
         const fileDocs = files.map(file => {
             return parseJSDoc(file, fs.readFileSync(path.join(libPath, file), 'utf8'));
         });
+
+        // "User Commands" — every command actually registered under ~/.tyr/commands/, documented
+        // with the same @description/@example JSDoc tags as a Manager (see parseCommandJSDoc() in
+        // sys/help.ts, which tyr --help also reads), rather than a separate convention just for
+        // these — a command can now have multiple @example blocks, same as this file's own systemDocs
+        // entries below.
+        const commandsDir = path.join(userRoot, 'commands');
+        const commandDocs: CommandEntry[] = fs.existsSync(commandsDir)
+            ? fs.readdirSync(commandsDir)
+                .filter(f => f.endsWith('.tyr.ts'))
+                .sort()
+                .map(file => {
+                    const name = path.basename(file, '.tyr.ts');
+                    const { description, examples } = parseCommandJSDoc(path.join(commandsDir, file));
+                    return { name, description, examples };
+                })
+            : [];
 
         const systemDocs: DocStructure = {
             name: 'TyrContext (Kernel)',
@@ -218,12 +297,15 @@ if (!fs.existsSync('./package.json')) {
                 nav { width: 220px; border-right: 1px solid #444; margin-right: 20px; padding-right: 20px; height: 100vh; overflow-y: auto; position: sticky; top: 0; }
                 a { color: #4db8ff; text-decoration: none; display: block; margin: 8px 0; padding: 5px; border-radius: 4px; transition: 0.2s; }
                 a:hover { background: #333; }
+                a.xref { display: inline; margin: 0; padding: 0; border-radius: 0; font-family: monospace; text-decoration: underline dotted; }
+                a.xref:hover { background: none; color: #6dc9ff; }
                 main { flex: 1; overflow-y: auto; }
                 .card { background: #2d2d2d; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 1px solid #333; }
                 h2 { border-bottom: 1px solid #444; padding-bottom: 10px; margin-top: 0; color: #fff; }
                 .method { margin-top: 25px; padding-left: 15px; border-left: 3px solid #4db8ff; }
                 h3 { margin: 0 0 5px 0; color: #4db8ff; font-family: monospace; font-size: 1.2em; }
-                .desc { color: #ccc; margin-bottom: 10px; }
+                .desc { color: #ccc; margin-bottom: 10px; white-space: pre-wrap; }
+                .card-desc { font-size: 1.1em; color: #bbb; white-space: pre-wrap; }
                 pre { background: #1a1a1a; padding: 15px; border-radius: 5px; overflow-x: auto; border: 1px solid #444; color: #ce9178; font-family: monospace; white-space: pre-wrap; }
                 .tag-ts { background: #007acc; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.7em; margin-left: 10px; vertical-align: middle; }
                 .prompt-box { background: #1a1a1a; border: 2px solid #4db8ff; padding: 25px; border-radius: 8px; margin-top: 40px; position: relative; }
@@ -236,22 +318,42 @@ if (!fs.existsSync('./package.json')) {
         <body>
             <nav>
                 <h3 style="color: #888; text-transform: uppercase; font-size: 0.8rem;">TS Modules</h3>
-                ${docs.map(d => `<a href="#${d.name}">📦 ${d.name.replace('.ts', '')}</a>`).join('')}
+                ${docs.map(d => `<a href="#${d.name}">📦 ${escapeHtml(d.name.replace('.ts', ''))}</a>`).join('')}
+                <h3 style="color: #888; text-transform: uppercase; font-size: 0.8rem; margin-top: 20px;">User Commands</h3>
+                ${commandDocs.length > 0
+                    ? commandDocs.map(c => `<a href="#cmd-${c.name}">🧭 ${escapeHtml(c.name)}</a>`).join('')
+                    : `<span style="display:block; padding: 5px; color: #666; font-size: 0.85em;">None in ~/.tyr/commands/</span>`}
             </nav>
             <main>
                 ${docs.map(d => `
                     <div id="${d.name}" class="card">
-                        <h2>${d.name} <span class="tag-ts">TS</span></h2>
-                        <p style="font-size: 1.1em; color: #bbb;">${d.description}</p>
+                        <h2>${escapeHtml(d.name)} <span class="tag-ts">TS</span></h2>
+                        <p class="card-desc">${renderText(d.description)}</p>
                         ${d.methods.map(m => `
                             <div class="method">
-                                <h3>${m.name}()</h3>
-                                <p class="desc">${m.description}</p>
-                                ${m.example ? `<pre>${m.example}</pre>` : ''}
+                                <h3>${escapeHtml(m.name)}()</h3>
+                                <p class="desc">${renderText(m.description)}</p>
+                                ${m.example ? `<pre>${escapeHtml(m.example)}</pre>` : ''}
                             </div>
                         `).join('')}
                     </div>
                 `).join('')}
+
+                <h2 style="color: #fff; margin: 10px 0 20px; font-size: 1.4em;">🧭 User Commands <span style="color:#888; font-size: 0.6em; font-weight: normal;">(~/.tyr/commands/)</span></h2>
+                ${commandDocs.length > 0
+                    ? commandDocs.map(c => `
+                        <div id="cmd-${c.name}" class="card">
+                            <h2>${escapeHtml(c.name)} <span class="tag-ts" style="background:#2e8b57;">CMD</span></h2>
+                            <p class="card-desc">${c.description ? renderText(c.description) : 'No description.'}</p>
+                            ${c.examples.map((example, i) => `
+                                <div class="method">
+                                    <h3>${c.examples.length > 1 ? `Example ${i + 1}` : 'Example'}</h3>
+                                    <pre>${escapeHtml(example)}</pre>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `).join('')
+                    : `<div class="card"><p class="desc">No commands found in ~/.tyr/commands/. Create one with <code>tyr gen &lt;name&gt; &lt;file&gt;</code>.</p></div>`}
             </main>
         </body>
         </html>`;

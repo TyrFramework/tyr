@@ -28,7 +28,19 @@ interface TyrConfig {
 // user's own `~/.tyr/commands/` directory, outside this repository, so it must resolve the type
 // through the npm package's public export (see src/index.ts) rather than a path that only makes
 // sense inside this repo.
-const template = `import type { TyrContext } from '@tyrframework/cli';
+//
+// The leading /** ... */ block is a command doc comment in the same style used for every Manager
+// in src/lib/ (@description / @example — see any file there, or AGENTS.md-style docs elsewhere in
+// this codebase) rather than a bespoke convention just for commands: both `tyr --help` and
+// `tyr doc` read it (see sys/help.ts's parseCommandJSDoc()), and `tyr doc` in particular renders
+// every @example block exactly like it renders a Manager method's example. Multiple @example tags
+// are supported — add as many as are useful.
+const template = `/**
+ * @description TODO: describe what the "%s" command does.
+ * @example
+ * tyr %s
+ */
+import type { TyrContext } from '@tyrframework/cli';
 
 export default ({ run, task, fail, logger, shell, fs }: TyrContext) => {
     return async (args: string[]) => {

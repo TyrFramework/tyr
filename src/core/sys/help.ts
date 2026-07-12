@@ -6,62 +6,135 @@
  *
  * Prints two sections: the framework's own built-in commands (hardcoded in `builtins` below — kept
  * in sync with `Kernel.handle()` by hand, there is no single source of truth shared between the
- * two) and every user command found in `~/.tyr/commands/*.tyr.ts`, whose description/usage is
- * scraped from that file's own leading JSDoc-style comment (see `parseCommandDoc`).
+ * two) and every user command found in `~/.tyr/commands/*.tyr.ts`, whose description/examples are
+ * scraped from that file's own leading comment (see `parseCommandJSDoc`) — the very same
+ * `@description`/`@example` JSDoc tags used to document Managers in `src/lib/*.ts` (see
+ * `sys/doc.ts`'s `parseJSDoc`), so a command is documented the same way regardless of whether it's
+ * read from the terminal (here) or from the `tyr doc` HTML reference.
  */
 import fs from 'fs';
 import path from 'path';
 import { TyrContext } from '../Kernel';
 
-interface CommandDoc {
+/** Description/usage extracted from a user command's leading comment — see `parseCommandDoc()`.
+ *  Exported so other `sys/*` commands (currently `doc.ts`, for its "User Commands" section) can
+ *  reuse the exact same parsing instead of re-implementing it slightly differently. */
+export interface CommandDoc {
     name: string;
     description: string;
     usage: string;
 }
 
+/** Description plus every `@example` block found in a command's leading comment, in source order.
+ *  The lower-level result `parseCommandJSDoc()` returns — `doc.ts`'s "User Commands" section uses
+ *  this directly (one `<pre>` per example, exactly like a Manager method's `@example`); `help.ts`'s
+ *  own `parseCommandDoc()` collapses `examples` into a single `usage` string for the terminal. */
+export interface CommandJSDoc {
+    description: string;
+    examples: string[];
+}
+
+/** Drops only the blank lines at the very start/end of an array of lines, leaving blank lines in
+ *  the middle untouched. Used to trim a comment block's own leading/trailing padding without
+ *  destroying blank lines the author used as paragraph breaks inside the description — a plain
+ *  `.filter(l => l.trim() !== '')` would strip those paragraph breaks along with the padding. */
+function trimBlankEdges(lines: string[]): string[] {
+    const trimmed = [...lines];
+    while (trimmed.length && trimmed[0].trim() === '') trimmed.shift();
+    while (trimmed.length && trimmed[trimmed.length - 1].trim() === '') trimmed.pop();
+    return trimmed;
+}
+
 /**
- * Extracts a user command's description and usage from the first `/** ... *\/` block at the top
- * of its `.tyr.ts` file. The block is split on a line starting with `uso:` (Spanish for "usage:")
- * — everything before it is the description, everything after is the usage text. A file with no
- * leading comment, or no `uso:` line, still works (falls back to an empty usage / the whole
- * comment as description) rather than throwing.
+ * Extracts the description and every `@example` block from the first `/** ... *\/` comment at the
+ * top of a `.tyr.ts` file, using the same JSDoc vocabulary `sys/doc.ts`'s `parseJSDoc` reads for
+ * Managers: `@description` for the description text, and one or more `@example` blocks for usage
+ * examples (unlike a Manager method, which only ever needs one). A file with no leading comment
+ * returns an empty description and no examples rather than throwing — commands are never required
+ * to be documented.
+ *
+ * For a command still using the older, pre-JSDoc convention (a plain comment with everything
+ * before a `uso:` line as the description and everything after as a single usage example, with no
+ * `@description`/`@example` tags at all), this still degrades gracefully to roughly the same
+ * result — new commands should prefer `@description`/`@example`, but nothing breaks for old ones.
  */
-function parseCommandDoc(filePath: string): CommandDoc {
-    const fileName = path.basename(filePath, '.tyr.ts');
+export function parseCommandJSDoc(filePath: string): CommandJSDoc {
     const content = fs.readFileSync(filePath, 'utf-8');
 
     const match = content.match(/\/\*\*([\s\S]*?)\*\//);
-    if (!match) {
-        return { name: fileName, description: '', usage: '' };
-    }
+    if (!match) return { description: '', examples: [] };
 
     const lines = match[1]
         .split('\n')
         .map(line => line.replace(/^\s*\*\s?/, '').trimEnd());
-
-    const usoIndex = lines.findIndex(l => /^uso:/i.test(l.trim()));
+    const cleaned = trimBlankEdges(lines).join('\n');
 
     let description = '';
-    let usage = '';
-
-    if (usoIndex !== -1) {
-        description = lines
-            .slice(0, usoIndex)
-            .filter(l => l.trim() !== '')
-            .join('\n')
-            .trim();
-
-        usage = lines
-            .slice(usoIndex + 1)
-            .filter(l => l.trim() !== '')
-            .map(l => l.trim())
-            .join('\n')
-            .trim();
-    } else {
-        description = lines.filter(l => l.trim() !== '').join('\n').trim();
+    // `@fileoverview` is accepted as a fallback source for the description, not just
+    // `@description`: it's a standard JSDoc tag, and it's the exact tag this codebase's own
+    // Managers use for their file-level header comment (see e.g. AIContextManager.ts) — a command
+    // documented the same way shouldn't get a broken result just because it used `@fileoverview`
+    // instead of `@description`. Tried in order; `@description` wins if a comment has both.
+    const descMatch =
+        cleaned.match(/@description\s+([\s\S]*?)(?=\n\s*@\w|$)/i) ??
+        cleaned.match(/@fileoverview\s+([\s\S]*?)(?=\n\s*@\w|$)/i);
+    if (descMatch) {
+        description = descMatch[1].trim();
     }
 
-    return { name: fileName, description, usage };
+    // Unlike the single-@example lookahead in doc.ts's parseJSDoc (`(?=@|$)`), this requires the
+    // next tag's `@` to start a new line — deliberately, since this loop can match several
+    // @example blocks in the same comment, and a bare `(?=@|$)` would truncate an example early
+    // if its own code happens to contain an unrelated "@" (an email address, a decorator, ...).
+    const examples: string[] = [];
+    const exampleRegex = /@example\b([\s\S]*?)(?=\n\s*@\w|$)/gi;
+    let exampleMatch: RegExpExecArray | null;
+    while ((exampleMatch = exampleRegex.exec(cleaned)) !== null) {
+        const example = exampleMatch[1].replace(/```ts|```/g, '').trim();
+        if (example) examples.push(example);
+    }
+
+    // Nothing tagged with @description/@example at all — fall back to the pre-JSDoc convention
+    // (description before a `uso:` line, usage after it), or, failing that, the whole comment as
+    // a plain description.
+    if (!descMatch && examples.length === 0) {
+        const rawLines = cleaned.split('\n');
+        const usoIndex = rawLines.findIndex(l => /^uso:/i.test(l.trim()));
+
+        if (usoIndex !== -1) {
+            description = trimBlankEdges(rawLines.slice(0, usoIndex)).join('\n');
+            const usage = rawLines
+                .slice(usoIndex + 1)
+                .filter(l => l.trim() !== '')
+                .map(l => l.trim())
+                .join('\n')
+                .trim();
+            if (usage) examples.push(usage);
+        } else {
+            description = cleaned;
+        }
+    } else if (!descMatch) {
+        // @example is present but @description isn't — still show whatever plain text precedes
+        // the first @-tag as the description, instead of leaving it empty.
+        const firstTagIndex = cleaned.split('\n').findIndex(l => /^@\w/.test(l.trim()));
+        if (firstTagIndex > 0) {
+            description = trimBlankEdges(cleaned.split('\n').slice(0, firstTagIndex)).join('\n');
+        }
+    }
+
+    return { description, examples };
+}
+
+/**
+ * Extracts a user command's description and usage from its leading comment, in the `{name,
+ * description, usage}` shape `tyr --help`'s rendering loop expects — a thin wrapper around
+ * `parseCommandJSDoc()` that joins multiple `@example` blocks into one `usage` string (each
+ * separated by a blank line), since the terminal only ever shows one "Usage:" block per command.
+ */
+export function parseCommandDoc(filePath: string): CommandDoc {
+    const fileName = path.basename(filePath, '.tyr.ts');
+    const { description, examples } = parseCommandJSDoc(filePath);
+    return { name: fileName, description, usage: examples.join('\n\n') };
 }
 
 /**
