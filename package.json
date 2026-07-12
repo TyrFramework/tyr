@@ -1,6 +1,6 @@
 {
   "name": "@tyrframework/cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "bin": {
     "tyr": "./bin/tyr.js"
