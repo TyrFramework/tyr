@@ -39,7 +39,7 @@ export class FileSystemManager {
      * @returns {string} The expanded absolute path.
      * @example
      * const dir = fs.expandPath(getEnvString('INTEGRATIONS_DIR'));
-     * // "~/dev/datosBroker" → "/Users/mandreu/dev/datosBroker"
+     * // "~/dev/projects" → "/Users/mandreu/dev/projects"
      */
     public expandPath(filePath: string): string {
         const home = homedir();
