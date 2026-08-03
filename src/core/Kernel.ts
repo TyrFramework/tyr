@@ -10,7 +10,7 @@
  *     `fail`/`frameworkRoot`/`userRoot`.
  *  4. Resolves the command name — first against a handful of hardcoded flags (`--config`,
  *     `--modules`, `--add`, `--del`, `--manifest`), then against the built-in system commands
- *     (`gen`, `rem`, `doc`, `chat` — see `./sys/*`), and finally against `map.yml`'s `commands`
+ *     (`gen`, `rem`, `doc`, `doc:build`, `chat` — see `./sys/*`), and finally against `map.yml`'s `commands`
  *     table, which point at arbitrary `.tyr.ts` files (typically under `~/.tyr/commands/`) — and
  *     invokes it with the context.
  *
@@ -30,6 +30,7 @@ import { Container } from './Container';
 import gen from './sys/gen';
 import rem from './sys/rem';
 import doc from './sys/doc';
+import docBuild from './sys/docBuild';
 import chat from './sys/chat';
 import config from './sys/config';
 import help from './sys/help';
@@ -152,7 +153,7 @@ export class Kernel {
      * (prints usage), the hardcoded flags (`--version`, `--update`, `--upgrade`, `--help`), builds
      * the full {@link TyrContext} for everything after that point, then the config/module-management
      * flags (`--config`, `--modules`, `--add`, `--del`, `--manifest`), then the built-in system
-     * commands (`gen`, `rem`, `doc`, `chat`), and finally user commands registered in
+     * commands (`gen`, `rem`, `doc`, `doc:build`, `chat`), and finally user commands registered in
      * `~/.tyr/map.yml` (resolving aliases first). Also used internally by `TyrContext.run()` to
      * implement command composition — it simply re-enters this method.
      * @param {string[]} args - CLI arguments with the command name in `args[0]` (must not include
@@ -305,6 +306,7 @@ export class Kernel {
             gen,
             rem,
             doc,
+            'doc:build': docBuild,
             chat,
         };
 

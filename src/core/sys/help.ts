@@ -182,6 +182,7 @@ export default function help({ userRoot }: TyrContext) {
             { name: '--manifest', description: 'Generates ~/.tyr/manifest.json from your commands (needs a GitHub-linked repo).', usage: 'tyr --manifest' },
             { name: 'gen',       description: 'Generates a new command from a description using AI.', usage: 'tyr gen <name> "<description>"' },
             { name: 'doc',       description: 'Opens the framework documentation in the browser.', usage: 'tyr doc' },
+            { name: 'doc:build', description: 'Writes the framework documentation as static JSON (for the pages/docs site).', usage: 'tyr doc:build [--out <path>]' },
             { name: 'chat',      description: 'Opens an AI chat + file browser for a directory.',  usage: 'tyr chat [directory] [--port <n>] [--split <0-1>]' },
         ];
 
