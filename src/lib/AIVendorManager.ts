@@ -504,9 +504,9 @@ export class AIVendorManager {
     }
 
     /**
-     * OpenAI no tiene un bloque "tool_result" dentro de un mensaje de usuario: cada resultado de
-     * herramienta tiene que ir en su propio mensaje con role: 'tool'. Por eso, a diferencia de
-     * Anthropic, un único AIMessage de entrada puede expandirse a varios mensajes de salida.
+     * OpenAI has no "tool_result" block inside a user message: each tool result has to go in its
+     * own message with role: 'tool'. That's why, unlike Anthropic, a single input AIMessage can
+     * expand into several output messages.
      */
     private buildOpenAIMessages(turns: AIMessage[]): any[] {
         const result: any[] = [];
@@ -555,9 +555,9 @@ export class AIVendorManager {
         return result;
     }
 
-    /** Busca hacia atrás en TODO el historial (no solo en el turno actual) el nombre de la
-     *  función asociada a un tool_use_id, porque Gemini necesita el `name` en el functionResponse
-     *  y nosotros solo tenemos el id opaco que generamos al parsear la respuesta anterior. */
+    /** Searches backward through the ENTIRE history (not just the current turn) for the function
+     *  name associated with a tool_use_id, because Gemini needs the `name` in the functionResponse
+     *  and we only have the opaque id we generated while parsing the previous response. */
     private findToolUseName(allMessages: AIMessage[], toolUseId: string): string | undefined {
         for (const m of allMessages) {
             if (!Array.isArray(m.content)) continue;
@@ -570,9 +570,9 @@ export class AIVendorManager {
     }
 
     /**
-     * NOTA: la API pública de Gemini espera los resultados de función en un content con
-     * role: 'function' (parts: [{ functionResponse: { name, response } }]). Esto puede variar
-     * entre versiones de la API — si Google cambia el contrato, este es el único sitio a tocar.
+     * NOTE: Gemini's public API expects function results in a content with role: 'function'
+     * (parts: [{ functionResponse: { name, response } }]). This may vary between API versions —
+     * if Google changes the contract, this is the only place to touch.
      */
     private buildGeminiContents(turns: AIMessage[], allMessages: AIMessage[]): any[] {
         const result: any[] = [];

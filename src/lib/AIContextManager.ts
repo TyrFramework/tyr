@@ -376,22 +376,22 @@ export class AIContextManager {
 
     /**
      * @method findContextFiles
-     * @description Busca los archivos de directrices conocidos (README.md, CLAUDE.md, AGENTS.md,
-     * CONTEXT.md, .cursorrules, copilot-instructions.md) no solo dentro de `dir`, sino tanto hacia
-     * fuera (directorios ancestros, hasta CONTEXT_SEARCH_UPWARD_LEVELS niveles — un AGENTS.md en la
-     * raíz de un monorepo sigue aplicando a un paquete dentro de él) como hacia dentro (subcarpetas,
-     * hasta CONTEXT_SEARCH_DOWNWARD_LEVELS niveles — un paquete anidado puede documentarse a sí
-     * mismo). La "relevancia" se determina de forma determinista, sin llamar a la IA (esto se
-     * ejecuta antes de cada comando, así que tiene que ser barato):
-     *   - Hacia fuera: se detiene en cuanto se cruza la raíz del repo (una carpeta .git), además del
-     *     tope de niveles — más allá de eso nunca es relevante.
-     *   - Hacia dentro: NO se desciende más allá del primer directorio que tenga su propio
-     *     package.json/composer.json (un límite de paquete independiente) salvo para recoger el
-     *     archivo de contexto que esté justo en ese límite; lo que hay más adentro pertenece a ese
-     *     otro paquete, no a `dir`.
-     *   - Si aun así se encuentran más de MAX_CONTEXT_FILES candidatos, ganan los más cercanos a `dir`.
-     * @param {string} dir - Ruta absoluta a la raíz del proyecto (o subcarpeta) desde la que buscar.
-     * @returns {Promise<string[]>} Rutas absolutas de los archivos de directrices relevantes, del más al menos cercano.
+     * @description Looks for known guideline files (README.md, CLAUDE.md, AGENTS.md, CONTEXT.md,
+     * .cursorrules, copilot-instructions.md) not just inside `dir`, but both outward (ancestor
+     * directories, up to CONTEXT_SEARCH_UPWARD_LEVELS levels — an AGENTS.md at a monorepo's root
+     * still applies to a package inside it) and inward (subfolders, up to
+     * CONTEXT_SEARCH_DOWNWARD_LEVELS levels — a nested package can document itself). "Relevance" is
+     * determined deterministically, with no AI call (this runs before every command, so it has to
+     * be cheap):
+     *   - Outward: stops as soon as the repo root is crossed (a `.git` folder), in addition to the
+     *     level cap — beyond that it's never relevant.
+     *   - Inward: does NOT descend past the first directory that has its own
+     *     package.json/composer.json (an independent package boundary), except to pick up the
+     *     context file sitting right at that boundary; anything further in belongs to that other
+     *     package, not to `dir`.
+     *   - If more than MAX_CONTEXT_FILES candidates are still found, the ones closest to `dir` win.
+     * @param {string} dir - Absolute path to the project root (or subfolder) to search from.
+     * @returns {Promise<string[]>} Absolute paths of the relevant guideline files, nearest to farthest.
      */
     public async findContextFiles(dir: string): Promise<string[]> {
         const found = new Map<string, number>();
@@ -465,12 +465,12 @@ export class AIContextManager {
 
     /**
      * @method buildPackageJsonSummary
-     * @description Parsea package.json de forma segura (try/catch) y vuelve a serializar
-     * únicamente los campos relevantes para el contexto arquitectónico. A diferencia de un
-     * `.slice()` a ciegas, nunca entrega al vendor de IA un JSON truncado y sintácticamente roto.
-     * @param {string} dir - Ruta absoluta a la raíz del proyecto.
-     * @returns {Promise<string | null>} Sección Markdown lista para el snapshot, o null si no
-     * hay package.json legible o válido.
+     * @description Safely parses package.json (try/catch) and re-serializes only the fields
+     * relevant to architectural context. Unlike a blind `.slice()`, it never hands the AI vendor a
+     * truncated, syntactically broken JSON.
+     * @param {string} dir - Absolute path to the project root.
+     * @returns {Promise<string | null>} Markdown section ready for the snapshot, or null if there's
+     * no readable/valid package.json.
      */
     private async buildPackageJsonSummary(dir: string): Promise<string | null> {
         const pkgPath = path.join(dir, 'package.json');
@@ -494,15 +494,14 @@ export class AIContextManager {
 
     /**
      * @method scanDirectoryTree
-     * @description Escaneo recursivo de directorios agnóstico al SO usando la API nativa de
-     * Node.js (sin subprocesos de shell), acotado en profundidad — pensado para el snapshot que
-     * alimenta la generación de directrices. Para el árbol usado como semilla del agente (sin tope
-     * de profundidad), ver buildExplorationTree().
-     * @param {string} rootDir - Ruta absoluta desde la que empezar a escanear.
-     * @param {number} maxDepth - Profundidad máxima de recursión.
-     * @param {number} maxEntriesPerDir - Máximo de entradas listadas por carpeta antes de truncar.
-     * @param {Set<string>} ignoredDirs - Nombres de directorios a omitir por completo.
-     * @returns {Promise<string>} Representación en texto indentado del árbol.
+     * @description OS-agnostic recursive directory scan using Node's native API (no shell
+     * subprocesses), depth-capped — meant for the snapshot that feeds guideline generation. For the
+     * tree used to seed the agent (no depth cap), see buildExplorationTree().
+     * @param {string} rootDir - Absolute path to start scanning from.
+     * @param {number} maxDepth - Maximum recursion depth.
+     * @param {number} maxEntriesPerDir - Maximum entries listed per folder before truncating.
+     * @param {Set<string>} ignoredDirs - Directory names to skip entirely.
+     * @returns {Promise<string>} Indented text representation of the tree.
      */
     private async scanDirectoryTree(
         rootDir: string,
@@ -550,9 +549,8 @@ export class AIContextManager {
 
     /**
      * @method buildProjectSnapshot
-     * @description Ensambla el material que necesita el vendor de IA para escribir directrices:
-     * un resumen seguro de package.json, el README y un árbol de directorios nativo. Sin
-     * subprocesos de shell.
+     * @description Assembles the material the AI vendor needs to write guidelines: a safe
+     * package.json summary, the README, and a native directory tree. No shell subprocesses.
      */
     private async buildProjectSnapshot(dir: string): Promise<string> {
         const parts: string[] = [];
@@ -574,10 +572,10 @@ export class AIContextManager {
 
     /**
      * @method generateContextFile
-     * @description Escanea el proyecto y le pide al vendor de IA configurado que sintetice un
-     * archivo de directrices, luego lo escribe como CLAUDE.md en la raíz del proyecto.
-     * @param {string} dir - Ruta absoluta a la raíz del proyecto.
-     * @returns {Promise<string>} Ruta absoluta del archivo generado.
+     * @description Scans the project and asks the configured AI vendor to synthesize a guideline
+     * file, then writes it as CLAUDE.md at the project root.
+     * @param {string} dir - Absolute path to the project root.
+     * @returns {Promise<string>} Absolute path of the generated file.
      */
     public async generateContextFile(dir: string): Promise<string> {
         this.logger.info('No se encontró archivo de contexto. Analizando el proyecto para generar uno...');
@@ -608,9 +606,9 @@ export class AIContextManager {
 
     /**
      * @method readGuidelines
-     * @description Encuentra los archivos de directrices existentes (generando uno vía IA si no
-     * hay ninguno), los lee y valida, y los devuelve como bloques discretos etiquetados.
-     * @param {string} dir - Ruta absoluta a la raíz del proyecto.
+     * @description Finds the existing guideline files (generating one via AI if there are none),
+     * reads and validates them, and returns them as discrete, labeled blocks.
+     * @param {string} dir - Absolute path to the project root.
      * @returns {Promise<GuidelinesBlock[]>}
      */
     public async readGuidelines(dir: string): Promise<GuidelinesBlock[]> {
@@ -643,9 +641,9 @@ export class AIContextManager {
 
     /**
      * @method getGuidelinesText
-     * @description Envoltorio de conveniencia sobre readGuidelines() que devuelve el texto plano
-     * combinado de las directrices, sin envolver en roles/mensajes.
-     * @param {string} dir - Ruta absoluta a la raíz del proyecto.
+     * @description Convenience wrapper over readGuidelines() that returns the combined plain text
+     * of the guidelines, without wrapping it in roles/messages.
+     * @param {string} dir - Absolute path to the project root.
      * @returns {Promise<string>}
      */
     public async getGuidelinesText(dir: string): Promise<string> {
@@ -655,12 +653,12 @@ export class AIContextManager {
 
     /**
      * @method getContext
-     * @description Punto de entrada para uso puntual: encuentra/genera archivos de directrices y
-     * los empaqueta como un único mensaje 'system' listo para prepender a un prompt. Es también la
-     * pieza clave de la guía de exploración dinámica del agente: junto con buildExplorationTree(),
-     * es lo ÚNICO con lo que se siembra el contexto inicial de runCodeAgent()/runDescribeAgent() —
-     * el resto lo pide el propio modelo con AGENT_TOOLS.
-     * @param {string} dir - Ruta absoluta a la raíz del proyecto.
+     * @description One-shot entry point: finds/generates guideline files and packages them as a
+     * single 'system' message ready to prepend to a prompt. It's also the key piece of the agent's
+     * dynamic exploration guidance: together with buildExplorationTree(), it's the ONLY thing
+     * runCodeAgent()/runDescribeAgent()'s initial context is seeded with — the model requests
+     * everything else itself via AGENT_TOOLS.
+     * @param {string} dir - Absolute path to the project root.
      * @returns {Promise<AIMessage[]>}
      * @example
      * const contextMessages = await context.getContext(process.cwd());
